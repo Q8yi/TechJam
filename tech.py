@@ -45,7 +45,7 @@ def send_welcome(message):
 def get_poll_results(poll):
     print(poll)
     print(poll.value)
-    curr_emp = all_employees[USERNAME]
+    curr_emp = all_employees.get(USERNAME)
     if poll.question == "What is your position":
         bot.send_message(CHAT_ID, "Great! Nice to meet you!")
         bot.send_poll(CHAT_ID, "What is your team", ['Sales', 'IT', "Marketing", "Others"])
@@ -57,7 +57,7 @@ def echo_all(message):
     #print(message)
     global curr_qn
     text = message.text
-    curr_emp = all_employees[USERNAME]
+    curr_emp = all_employees.get(USERNAME)
     if curr_qn == "first":
         if text == "Executive" or text == "Staff":
             curr_qn = "second"
@@ -69,13 +69,13 @@ def echo_all(message):
         curr_emp.update_department(text)
         bot.send_message(CHAT_ID, "Please join the following group")
         if text == "Sales":
-            bot.reply_to(message, "https://t.me/+70jKTPG3iL84ZmFl")
+            bot.reply_to(message, "<tele chat link>")
         elif text == "Marketing":
-            bot.reply_to(message, "https://t.me/+70jKTPG3iL84ZmFl")
+            bot.reply_to(message, "<tele chat link>")
         elif text == "IT":
-            bot.reply_to(message, "https://t.me/+70jKTPG3iL84ZmFl")
+            bot.reply_to(message, "<tele chat link>")
         elif text == "Others":
-            bot.reply_to(message, "https://t.me/+70jKTPG3iL84ZmFl")
+            bot.reply_to(message, "<tele chat link>")
     else:
         bot.reply_to(message, text)
 
