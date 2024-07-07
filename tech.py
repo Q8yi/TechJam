@@ -1,14 +1,31 @@
 import os
 import telebot
+import pandas as pd
+import re
+#visualisation
+import matplotlib.pyplot as plt
+#ML
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
 
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
+#for telebot
 CHAT_ID = ""
 USERNAME = ""
 all_employees = {}
 curr_qn = ""
+
+#for database
+try:
+    data = pd.read_csv('data.csv', encoding='utf-8')
+except UnicodeDecodeError:
+    data = pd.read_csv('data.csv', encoding='latin1')
 
 class employee():
     def __init__(self, name, chat_id):
@@ -62,25 +79,82 @@ def echo_all(message):
     curr_emp = all_employees.get(USERNAME)
     curr_qn = curr_emp.get_qn()
     text = message.text.lower()
+    to_send = "Please join the following group"
     if curr_qn == "first":
         if text == "executive" or text == "staff":
             curr_emp.update_qn("second")
             curr_emp.update_pos(text)
             bot.send_message(CHAT_ID, "What is your team? [Sales, IT, Marketing, Others]")
         else :
-            bot.send_message(CHAT_ID, "Please key in a valid Position")
+            bot.send_message(CHAT_ID, "Please key in a valid team")
     elif curr_qn == "second":
         curr_emp.update_department(text)
         curr_emp.update_qn("")
-        bot.send_message(CHAT_ID, "Please join the following group")
         if text == "sales":
-            bot.reply_to(message, "<tele chat link>")
+            bot.reply_to(message, f"{to_send} <tele chat link>")
         elif text == "marketing":
-            bot.reply_to(message, "<tele chat link>")
+            bot.reply_to(message, f"{to_send} <tele chat link>")
         elif text == "it":
-            bot.reply_to(message, "<tele chat link>")
+            bot.reply_to(message, f"{to_send} <tele chat link>")
         elif text == "others":
-            bot.reply_to(message, "<tele chat link>")
+            bot.reply_to(message, f"{to_send} <tele chat link>")
+        else :
+            bot.send_message(CHAT_ID, "Please key in a valid Position")
+    elif (("prediction" in text or "forecast" in text) and (curr_emp != None)):
+        data['grand_total'] = data['Quantity'] * data['UnitPrice']
+        selected = data.loc[:, ['InvoiceNo', 'Description', 'Quantity', 'InvoiceDate', 'CustomerID', 'Country', 'grand_total']]
+
+        # Convert 'InvoiceDate' to datetime format
+        selected['InvoiceDate'] = pd.to_datetime(selected['InvoiceDate'])
+
+        # Extract date and time features
+        selected['DayOfWeek'] = selected['InvoiceDate'].dt.dayofweek
+        selected['Month'] = selected['InvoiceDate'].dt.month
+        selected['Year'] = selected['InvoiceDate'].dt.year
+        selected['Hour'] = selected['InvoiceDate'].dt.hour
+
+        # Example: Calculate total quantity per customer
+        customer_total_quantity = selected.groupby('CustomerID')['Quantity'].sum().reset_index()
+        customer_total_quantity.rename(columns={'Quantity': 'TotalQuantity'}, inplace=True)
+        selected = selected.merge(customer_total_quantity, on='CustomerID', how='left')
+
+        # Example: Perform one-hot encoding for the 'Country' column
+        country_dummies = pd.get_dummies(selected['Country'], prefix='Country')
+        selected = pd.concat([selected, country_dummies], axis=1)
+
+        # Define the features and target variable
+        features = ['Quantity', 'DayOfWeek', 'Month', 'Year', 'Hour', 'TotalQuantity', 'Country_United Kingdom']
+        X = selected[features]
+        y = selected['grand_total']
+
+        # Split the data into training and testing sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+        # Handle missing values (if any)
+        imputer = SimpleImputer(strategy='mean')
+        X_train_imputed = imputer.fit_transform(X_train)
+        X_test_imputed = imputer.transform(X_test)
+
+        # Scale the features
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train_imputed)
+        X_test_scaled = scaler.transform(X_test_imputed)
+
+        # Create and train the linear regression model
+        model = LinearRegression()
+        model.fit(X_train_scaled, y_train)
+
+        # Make predictions
+        y_pred = model.predict(X_test_scaled)
+
+        # Evaluate the model
+        mse = mean_squared_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
+
+        print('Mean Squared Error:', mse)
+        print('R-squared:', r2)
+
+        bot.reply_to(message, f"Our predictions accuracy is {r2}")
     else:
         bot.reply_to(message, text)
 
