@@ -8,6 +8,7 @@ bot = telebot.TeleBot(BOT_TOKEN)
 CHAT_ID = ""
 USERNAME = ""
 all_employees = {}
+curr_qn = ""
 
 class employee():
     def __init__(self, name, chat_id):
@@ -31,14 +32,20 @@ def send_welcome(message):
     USERNAME = message.from_user.username
     employee1 = employee(CHAT_ID, USERNAME)
     all_employees[USERNAME] = employee1
+    #print(all_employees[USERNAME])
     bot.reply_to(message, f"Hello {USERNAME}")
+    global curr_qn
+    curr_qn = "first"
     bot.send_message(CHAT_ID, f"Welcome to TechJam! We will be assisting you in your sales enhancement journey")
     bot.send_message(CHAT_ID, "What is your position? [Executive, Staff]")
 
 
+
 @bot.poll_handler(func=lambda poll: True)
 def get_poll_results(poll):
-    curr_emp = all_employees[USERNAME]
+    print(poll)
+    print(poll.value)
+    curr_emp = all_employees.get(USERNAME)
     if poll.question == "What is your position":
         bot.send_message(CHAT_ID, "Great! Nice to meet you!")
         bot.send_poll(CHAT_ID, "What is your team", ['Sales', 'IT', "Marketing", "Others"])
@@ -50,7 +57,7 @@ def echo_all(message):
     #print(message)
     global curr_qn
     text = message.text
-    #curr_emp = all_employees[USERNAME]
+    curr_emp = all_employees.get(USERNAME)
     if curr_qn == "first":
         if text == "Executive" or text == "Staff":
             curr_qn = "second"
@@ -62,13 +69,13 @@ def echo_all(message):
         curr_emp.update_department(text)
         bot.send_message(CHAT_ID, "Please join the following group")
         if text == "Sales":
-            bot.reply_to(message, "<input tele grp chat link>")
+            bot.reply_to(message, "<tele chat link>")
         elif text == "Marketing":
-            bot.reply_to(message, "<input tele grp chat link>")
+            bot.reply_to(message, "<tele chat link>")
         elif text == "IT":
-            bot.reply_to(message, "<input tele grp chat link>")
+            bot.reply_to(message, "<tele chat link>")
         elif text == "Others":
-            bot.reply_to(message, "<input tele grp chat link>")
+            bot.reply_to(message, "<tele chat link>")
     else:
         bot.reply_to(message, text)
 
