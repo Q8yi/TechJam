@@ -191,10 +191,6 @@ def echo_all(message):
         plt.title('Daily Sales Summary')
         plt.legend()
 
-<<<<<<< HEAD
-=======
-        X_train["date"] = pd.to_datetime(X_train[['Year','Month',"DayOfWeek"]])
-        X_test["date"] = pd.to_datetime(X_test[['Year','Month',"DayOfWeek"]])
     elif (("summary" in text) and (curr_emp !=None)):
         plt.figure(figsize=(10, 6))
         plt.plot(daily_sales.index, daily_sales['grand_total'], label='Daily Sales')
@@ -203,7 +199,6 @@ def echo_all(message):
         plt.title('Daily Sales Summary')
         plt.legend()
 
->>>>>>> 03a516bc72976cbfa48ed2528d5b0262a16cb6cb
         buffer = io.BytesIO()
         plt.savefig(buffer, format='png')
         buffer.seek(0)
