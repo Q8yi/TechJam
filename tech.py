@@ -4,6 +4,8 @@ import pandas as pd
 import re
 #visualisation
 import matplotlib.pyplot as plt
+import io
+from PIL import Image
 #ML
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
@@ -154,7 +156,25 @@ def echo_all(message):
         print('Mean Squared Error:', mse)
         print('R-squared:', r2)
 
+        print(X_train[['Year','Month',"DayOfWeek"]].isna().sum())
+
+        plt.figure()
+        plt.plot(X_train["DayOfWeek"], y_train, color='blue')
+        plt.plot(X_test["DayOfWeek"], y_pred, color='red')
+        plt.title("Predictions for grand total")
+
+        #send image of graph prediction
+        fig = plt.gcf()
+        buffer = io.BytesIO()
+        fig.savefig(buffer)
+        buffer.seek(0)
+        img = Image.open(buffer)
+        bot.send_photo(chat_id=CHAT_ID, photo = img)
+
         bot.reply_to(message, f"Our predictions accuracy is {r2}")
+
+        X_train["date"] = pd.to_datetime(X_train[['Year','Month',"DayOfWeek"]])
+        X_test["date"] = pd.to_datetime(X_test[['Year','Month',"DayOfWeek"]])
     else:
         bot.reply_to(message, text)
 
