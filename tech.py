@@ -29,6 +29,8 @@ try:
 except UnicodeDecodeError:
     data = pd.read_csv('data.csv', encoding='latin1')
 
+data['grand_total'] = data['Quantity'] * data['UnitPrice']
+
 class employee():
     def __init__(self, name, chat_id):
         self.name = name
@@ -55,7 +57,7 @@ def send_welcome(message):
     global CHAT_ID
     CHAT_ID = message.chat.id
     global USERNAME
-    USERNAME = message.from_user.username
+    USERNAME = message.from_user.first_name
     employee1 = employee(CHAT_ID, USERNAME)
     all_employees[USERNAME] = employee1
     #print(all_employees[USERNAME])
@@ -103,7 +105,6 @@ def echo_all(message):
         else :
             bot.send_message(CHAT_ID, "Please key in a valid Position")
     elif (("prediction" in text or "forecast" in text) and (curr_emp != None)):
-        data['grand_total'] = data['Quantity'] * data['UnitPrice']
         selected = data.loc[:, ['InvoiceNo', 'Description', 'Quantity', 'InvoiceDate', 'CustomerID', 'Country', 'grand_total']]
 
         # Convert 'InvoiceDate' to datetime format
@@ -156,12 +157,22 @@ def echo_all(message):
         print('Mean Squared Error:', mse)
         print('R-squared:', r2)
 
-        print(X_train[['Year','Month',"DayOfWeek"]].isna().sum())
+        plt.figure()
+        plt.plot(X_train["Quantity"], y_train, color='blue')
+        plt.plot(X_test["Quantity"], y_pred, color='red')
+        plt.title("Predictions for grand total against Quantity")
+
+        fig = plt.gcf()
+        buffer = io.BytesIO()
+        fig.savefig(buffer)
+        buffer.seek(0)
+        img = Image.open(buffer)
+        bot.send_photo(chat_id=CHAT_ID, photo = img)
 
         plt.figure()
-        plt.plot(X_train["DayOfWeek"], y_train, color='blue')
-        plt.plot(X_test["DayOfWeek"], y_pred, color='red')
-        plt.title("Predictions for grand total")
+        plt.plot(X_train["Hour"], y_train, color='blue')
+        plt.plot(X_test["Hour"], y_pred, color='red')
+        plt.title("Predictions for grand total against Hour of Day")
 
         #send image of graph prediction
         fig = plt.gcf()
@@ -171,10 +182,19 @@ def echo_all(message):
         img = Image.open(buffer)
         bot.send_photo(chat_id=CHAT_ID, photo = img)
 
-        bot.reply_to(message, f"Our predictions accuracy is {r2}")
+        bot.send_message(CHAT_ID, "Most sales happen between 8am to 2pm")
+    elif (("summary" in text) and (curr_emp !=None)):
+        plt.figure(figsize=(10, 6))
+        plt.plot(data.index, data['grand_total'], label='Daily Sales')
+        plt.xlabel('Date')
+        plt.ylabel('Sales')
+        plt.title('Daily Sales Summary')
+        plt.legend()
 
-        X_train["date"] = pd.to_datetime(X_train[['Year','Month',"DayOfWeek"]])
-        X_test["date"] = pd.to_datetime(X_test[['Year','Month',"DayOfWeek"]])
+        buffer = io.BytesIO()
+        plt.savefig(buffer, format='png')
+        buffer.seek(0)
+        bot.send_photo(message.chat.id, photo=buffer)
     else:
         bot.reply_to(message, text)
 
