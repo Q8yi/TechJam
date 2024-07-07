@@ -1,0 +1,160 @@
+import os
+import telebot
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
+
+# Initialize the Telegram bot
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
+bot = telebot.TeleBot(BOT_TOKEN)
+
+# Initialize global variables
+CHAT_ID = ""
+USERNAME = ""
+all_employees = {}
+curr_qn = ""
+
+# Load your data
+try:
+    data = pd.read_csv('data.csv', encoding='utf-8')
+except UnicodeDecodeError:
+    data = pd.read_csv('data.csv', encoding='latin1')
+
+# Define employee class
+class Employee:
+    def __init__(self, name, chat_id):
+        self.name = name
+        self.chat_id = chat_id
+        self.department = ""
+        self.pos = ""
+        self.qn = ""
+
+    def update_department(self, new_depart):
+        self.department = new_depart
+
+    def update_pos(self, new_pos):
+        self.pos = new_pos
+
+    def update_qn(self, curr_qn):
+        self.qn = curr_qn
+
+    def get_qn(self):
+        return self.qn
+
+# Command handler for '/start' and '/hello'
+@bot.message_handler(commands=['start', 'hello'])
+def send_welcome(message):
+    global CHAT_ID
+    CHAT_ID = message.chat.id
+    global USERNAME
+    USERNAME = message.from_user.username
+    employee1 = Employee(CHAT_ID, USERNAME)
+    all_employees[USERNAME] = employee1
+    bot.reply_to(message, f"Hello {USERNAME}")
+    all_employees[USERNAME].update_qn("first")
+    bot.send_message(CHAT_ID, f"Welcome to TechJam! We will be assisting you in your sales enhancement journey")
+    bot.send_message(CHAT_ID, "What is your position? [Executive, Staff]")
+
+# Message handler for all messages
+@bot.message_handler(func=lambda msg: True)
+def echo_all(message):
+    global curr_qn
+    curr_emp = all_employees.get(USERNAME)
+    curr_qn = curr_emp.get_qn()
+    text = message.text.lower()
+    
+    if curr_qn == "first":
+        if text == "executive" or text == "staff":
+            curr_emp.update_qn("second")
+            curr_emp.update_pos(text)
+            bot.send_message(CHAT_ID, "What is your team? [Sales, IT, Marketing, Others]")
+        else:
+            bot.send_message(CHAT_ID, "Please key in a valid team")
+    
+    elif curr_qn == "second":
+        curr_emp.update_department(text)
+        curr_emp.update_qn("")
+        if text in ["sales", "marketing", "it", "others"]:
+            bot.reply_to(message, f"Please join the following group <tele chat link>")
+        else:
+            bot.send_message(CHAT_ID, "Please key in a valid Position")
+    
+    elif any(keyword in text for keyword in ["prediction", "forecast"]) and curr_emp is not None:
+        data['grand_total'] = data['Quantity'] * data['UnitPrice']
+        selected = data.loc[:, ['InvoiceNo', 'Description', 'Quantity', 'InvoiceDate', 'CustomerID', 'Country', 'grand_total']]
+
+        # Convert 'InvoiceDate' to datetime format
+        selected['InvoiceDate'] = pd.to_datetime(selected['InvoiceDate'])
+
+        # Extract date and time features
+        selected['DayOfWeek'] = selected['InvoiceDate'].dt.dayofweek
+        selected['Month'] = selected['InvoiceDate'].dt.month
+        selected['Year'] = selected['InvoiceDate'].dt.year
+        selected['Hour'] = selected['InvoiceDate'].dt.hour
+
+        # Example: Calculate total quantity per customer
+        customer_total_quantity = selected.groupby('CustomerID')['Quantity'].sum().reset_index()
+        customer_total_quantity.rename(columns={'Quantity': 'TotalQuantity'}, inplace=True)
+        selected = selected.merge(customer_total_quantity, on='CustomerID', how='left')
+
+        # Example: Perform one-hot encoding for the 'Country' column
+        country_dummies = pd.get_dummies(selected['Country'], prefix='Country')
+        selected = pd.concat([selected, country_dummies], axis=1)
+
+        # Define the features and target variable
+        features = ['Quantity', 'DayOfWeek', 'Month', 'Year', 'Hour', 'TotalQuantity', 'Country_United Kingdom']
+        X = selected[features]
+        y = selected['grand_total']
+
+        # Split the data into training and testing sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+        # Handle missing values (if any)
+        imputer = SimpleImputer(strategy='mean')
+        X_train_imputed = imputer.fit_transform(X_train)
+        X_test_imputed = imputer.transform(X_test)
+
+        # Scale the features
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train_imputed)
+        X_test_scaled = scaler.transform(X_test_imputed)
+
+        # Create and train the linear regression model
+        model = LinearRegression()
+        model.fit(X_train_scaled, y_train)
+
+        # Make predictions
+        y_pred = model.predict(X_test_scaled)
+
+        # Evaluate the model
+        mse = mean_squared_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
+
+        print('Mean Squared Error:', mse)
+        print('R-squared:', r2)
+
+        # Generate and save the plot
+        plt.figure()
+        plt.plot(y_test, y_pred, 'o')
+        plt.xlabel('Actual')
+        plt.ylabel('Predicted')
+        plt.title('Actual vs Predicted')
+        plt.grid(True)
+        plt.tight_layout()
+        plot_filename = 'prediction_plot.png'
+        plt.savefig(plot_filename)
+        plt.close()
+
+        # Send the image
+        bot.send_photo(CHAT_ID, open(plot_filename, 'rb'))
+        bot.reply_to(message, f"Our predictions accuracy is {r2}")
+
+    else:
+        bot.reply_to(message, text)
+
+# Start the bot
+bot.infinity_polling()
