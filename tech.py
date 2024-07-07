@@ -175,6 +175,18 @@ def echo_all(message):
 
         X_train["date"] = pd.to_datetime(X_train[['Year','Month',"DayOfWeek"]])
         X_test["date"] = pd.to_datetime(X_test[['Year','Month',"DayOfWeek"]])
+    elif (("summary" in text) and (curr_emp !=None)):
+        plt.figure(figsize=(10, 6))
+        plt.plot(daily_sales.index, daily_sales['grand_total'], label='Daily Sales')
+        plt.xlabel('Date')
+        plt.ylabel('Sales')
+        plt.title('Daily Sales Summary')
+        plt.legend()
+
+        buffer = io.BytesIO()
+        plt.savefig(buffer, format='png')
+        buffer.seek(0)
+        bot.send_photo(message.chat.id, photo=buffer)
     else:
         bot.reply_to(message, text)
 
