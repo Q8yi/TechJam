@@ -33,7 +33,7 @@ def send_welcome(message):
     all_employees[USERNAME] = employee1
     bot.reply_to(message, f"Hello {USERNAME}")
     bot.send_message(CHAT_ID, f"Welcome to TechJam! We will be assisting you in your sales enhancement journey")
-    bot.send_poll(CHAT_ID, "What is your position", ['Executive', 'Staff'])
+    bot.send_message(CHAT_ID, "What is your position? [Executive, Staff]")
 
 
 @bot.poll_handler(func=lambda poll: True)
@@ -47,6 +47,29 @@ def get_poll_results(poll):
 
 @bot.message_handler(func=lambda msg: True)
 def echo_all(message):
-    bot.reply_to(message, message.text)
+    #print(message)
+    global curr_qn
+    text = message.text
+    #curr_emp = all_employees[USERNAME]
+    if curr_qn == "first":
+        if text == "Executive" or text == "Staff":
+            curr_qn = "second"
+            curr_emp.update_pos(text)
+            bot.send_message(CHAT_ID, "What is your team? [Sales, IT, Marketing, Others]")
+        else :
+            bot.send_message(CHAT_ID, "Please key in a valid Position")
+    elif curr_qn == "second":
+        curr_emp.update_department(text)
+        bot.send_message(CHAT_ID, "Please join the following group")
+        if text == "Sales":
+            bot.reply_to(message, "<input tele grp chat link>")
+        elif text == "Marketing":
+            bot.reply_to(message, "<input tele grp chat link>")
+        elif text == "IT":
+            bot.reply_to(message, "<input tele grp chat link>")
+        elif text == "Others":
+            bot.reply_to(message, "<input tele grp chat link>")
+    else:
+        bot.reply_to(message, text)
 
 bot.infinity_polling()
